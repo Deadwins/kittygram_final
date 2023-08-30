@@ -1,0 +1,71 @@
+name: CI/CD for Kittygram
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          npm install --prefix frontend/
+
+      - name: Lint backend
+        run: flake8 backend/
+
+      - name: Run backend tests
+        run: pytest backend/
+
+      - name: Build and push backend Docker image
+        run: |
+          docker build -t mikhaillll/kittygram_backend:latest ./backend/
+          docker login -u mikhaillll -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker push mikhaillll/kittygram_backend:latest
+
+      - name: Build and push frontend Docker image
+        run: |
+          npm run build --prefix frontend/
+          docker build -t mikhaillll/kittygram_frontend:latest ./frontend/
+          docker push mikhaillll/kittygram_frontend:latest
+
+      - name: Build and push gateway Docker image
+        run: |
+          docker build -t mikhaillll/kittygram_gateway:latest ./nginx/
+          docker push mikhaillll/kittygram_gateway:latest
+
+      - name: SSH to production server and deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          username: ${{ secrets.PRODUCTION_SERVER_USERNAME }}
+          password: ${{ secrets.PRODUCTION_SERVER_PASSWORD }}
+          port: ${{ secrets.PRODUCTION_SERVER_PORT }}
+          script: |
+            cd /path/to/your/project
+            git pull origin main
+            docker-compose -f docker-compose.production.yml up -d
+
+      - name: Run migrations and collect static
+        run: |
+          docker-compose -f docker-compose.production.yml exec kittygram_backend python manage.py migrate
+          docker-compose -f docker-compose.production.yml exec kittygram_backend python manage.py collectstatic --no-input
+
+      - name: Notify deployment success on Telegram
+        uses: appleboy/telegram-action@v1
+        with:
+          to: ${{ secrets.TELEGRAM_USER_ID }}
+          message: "Kittygram deployment was successful!"
