@@ -19,6 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
+          pip install flake8==6.0.0 flake8-isort==6.0.0
       - name: Test with flake8
         run: flake8 backend/
       - name: Run backend tests
@@ -82,7 +83,7 @@ jobs:
           docker build -t mikhaillll/kittygram_frontend:latest .
           docker push mikhaillll/kittygram_frontend:latest
 
-  build_and_push_to_docker_hub_nginx:
+  build_and_push_gateway:
     name: Build and Push Nginx Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
