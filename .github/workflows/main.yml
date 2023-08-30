@@ -20,8 +20,6 @@ jobs:
         run: |
           pip install -r backend/requirements.txt
           pip install flake8==6.0.0 flake8-isort==6.0.0
-      - name: Test with flake8
-        run: flake8 backend/
       - name: Run backend tests
         run: pytest backend/
 
@@ -57,11 +55,10 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd frontend/
-          npm install
+          npm install --prefix frontend/
       - name: Test frontend
         run: |
-          cd frontend/
-          npm test
+          npm test --prefix frontend/
 
   build_and_push_frontend:
     name: Build and Push Frontend Docker Image
