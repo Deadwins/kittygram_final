@@ -40,8 +40,8 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push Backend Docker Image
         run: |
-          docker build -t mikhaillll/taski_backend:latest ./backend/
-          docker push mikhaillll/taski_backend:latest
+          docker build -t mikhaillll/kittygram_backend:latest ./backend/
+          docker push mikhaillll/kittygram_backend:latest
 
   frontend_tests:
     name: Frontend Tests
@@ -79,8 +79,8 @@ jobs:
       - name: Build and Push Frontend Docker Image
         run: |
           cd frontend/
-          docker build -t mikhaillll/taski_frontend:latest .
-          docker push mikhaillll/taski_frontend:latest
+          docker build -t mikhaillll/kittygram_frontend:latest .
+          docker push mikhaillll/kittygram_frontend:latest
 
   build_and_push_gateway:
     name: Build and Push Gateway Docker Image
@@ -97,8 +97,8 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push Gateway Docker Image
         run: |
-          docker build -t mikhaillll/taski_gateway:latest ./gateway/
-          docker push mikhaillll/taski_gateway:latest
+          docker build -t mikhaillll/kittygram_gateway:latest ./gateway/
+          docker push mikhaillll/kittygram_gateway:latest
 
   deploy:
     name: Deploy to Production
@@ -118,7 +118,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "docker-compose.production.yml"
-          target: "taski"
+          target: "kittygram"
       - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@master
         with:
@@ -145,4 +145,4 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_TO }}
           token: ${{ secrets.TELEGRAM_TOKEN }}
-          message: Деплой успешно выполнен!
+          message: "Deployment successful!"
