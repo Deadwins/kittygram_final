@@ -6,66 +6,143 @@ on:
       - main
 
 jobs:
-  build:
-    name: Build and Deploy
+  backend_tests:
+    name: Backend Tests
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
-
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
-          npm install --prefix frontend/
-
-      - name: Lint backend
+      - name: Test with flake8
         run: flake8 backend/
-
       - name: Run backend tests
         run: pytest backend/
 
-      - name: Build and push backend Docker image
+  build_and_push_backend:
+    name: Build and Push Backend Docker Image
+    runs-on: ubuntu-latest
+    needs: backend_tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to Docker
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Push Backend Docker Image
         run: |
-          docker build -t mikhaillll/kittygram_backend:latest ./backend/
-          docker login -u mikhaillll -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker push mikhaillll/kittygram_backend:latest
+          docker build -t mikhaillll/taski_backend:latest ./backend/
+          docker push mikhaillll/taski_backend:latest
 
-      - name: Build and push frontend Docker image
+  frontend_tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 14
+      - name: Install frontend dependencies
         run: |
-          npm run build --prefix frontend/
-          docker build -t mikhaillll/kittygram_frontend:latest ./frontend/
-          docker push mikhaillll/kittygram_frontend:latest
-
-      - name: Build and push gateway Docker image
+          cd frontend/
+          npm install
+      - name: Test frontend
         run: |
-          docker build -t mikhaillll/kittygram_gateway:latest ./nginx/
-          docker push mikhaillll/kittygram_gateway:latest
+          cd frontend/
+          npm test
 
-      - name: SSH to production server and deploy
+  build_and_push_frontend:
+    name: Build and Push Frontend Docker Image
+    runs-on: ubuntu-latest
+    needs: frontend_tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to Docker
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Push Frontend Docker Image
+        run: |
+          cd frontend/
+          docker build -t mikhaillll/taski_frontend:latest .
+          docker push mikhaillll/taski_frontend:latest
+
+  build_and_push_gateway:
+    name: Build and Push Gateway Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to Docker
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Push Gateway Docker Image
+        run: |
+          docker build -t mikhaillll/taski_gateway:latest ./gateway/
+          docker push mikhaillll/taski_gateway:latest
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs:
+      - build_and_push_backend
+      - build_and_push_frontend
+      - build_and_push_gateway
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Copy docker-compose.production.yml via ssh
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          source: "docker-compose.production.yml"
+          target: "taski"
+      - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.PRODUCTION_SERVER_HOST }}
-          username: ${{ secrets.PRODUCTION_SERVER_USERNAME }}
-          password: ${{ secrets.PRODUCTION_SERVER_PASSWORD }}
-          port: ${{ secrets.PRODUCTION_SERVER_PORT }}
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
-            cd /path/to/your/project
-            git pull origin main
-            docker-compose -f docker-compose.production.yml up -d
+            cd taski
+            sudo docker-compose -f docker-compose.production.yml pull
+            sudo docker-compose -f docker-compose.production.yml down
+            sudo docker-compose -f docker-compose.production.yml up -d
+            sudo docker-compose -f docker-compose.production.yml exec backend python manage.py migrate
+            sudo docker-compose -f docker-compose.production.yml exec backend python manage.py collectstatic
+            sudo docker-compose -f docker-compose.production.yml exec backend cp -r /app/collected_static/. /backend_static/static/
 
-      - name: Run migrations and collect static
-        run: |
-          docker-compose -f docker-compose.production.yml exec kittygram_backend python manage.py migrate
-          docker-compose -f docker-compose.production.yml exec kittygram_backend python manage.py collectstatic --no-input
-
-      - name: Notify deployment success on Telegram
-        uses: appleboy/telegram-action@v1
+  notify_success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Send notification
+        uses: appleboy/telegram-action@master
         with:
-          to: ${{ secrets.TELEGRAM_USER_ID }}
-          message: "Kittygram deployment was successful!"
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: "Deployment successful!"
