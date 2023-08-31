@@ -30,7 +30,7 @@ jobs:
     - name: Run backend tests
       run: |
         python -m flake8 backend/
-        python backend/kittygram_backend/manage.py test
+        python backend/manage.py test
 
   build_and_push_backend:
     name: Build and Push Backend Docker Image
