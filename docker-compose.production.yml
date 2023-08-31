@@ -8,13 +8,13 @@ volumes:
 services:
   db:
     image: postgres:13.10
-    env_file: .env.prod
+    env_file: .env
     volumes:
       - pg_data:/var/lib/postgresql/data
 
   kittygram_backend:
     image: mikhaillll/kittygram_backend:latest
-    env_file: .env.prod
+    env_file: .env
     depends_on:
       - db
     volumes: 
@@ -23,13 +23,13 @@ services:
 
   kittygram_frontend:
     image: mikhaillll/kittygram_frontend:latest
-    env_file: .env.prod
+    env_file: .env
     volumes:
       - static:/frontend_static
 
   kittygram_gateway:
     image: mikhaillll/kittygram_gateway:latest
-    env_file: .env.prod
+    env_file: .env
     ports:
       - 9000:80
     volumes:
