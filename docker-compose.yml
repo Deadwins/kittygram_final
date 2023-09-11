@@ -23,11 +23,10 @@ services:
       - ./backend/:/backend/kittygram_backend/
 
   frontend:
-    env_file: .env
     build: ./frontend/
-    command: cp -r /app/build/. /frontend_static/
+    env_file: .env
     volumes:
-      - kittygram_static:/frontend_static
+      - kittygram_static:/app/build
 
   gateway:
     build: ./nginx/
