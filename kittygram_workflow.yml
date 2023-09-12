@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11, 3.12]  # Добавьте нужные версии Python
+        python-version: [3.9, 3.10, 3.11, 3.12]
 
     steps:
     - name: Check out code
@@ -53,7 +53,7 @@ jobs:
         run: |
           cd frontend/
           npm test
-
+          
   publish_docker_images:
     name: Publish Docker Images to Docker Hub
     runs-on: ubuntu-latest
